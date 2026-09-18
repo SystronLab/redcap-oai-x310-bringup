@@ -1,0 +1,6 @@
+*.log
+*.pcap
+*.iqs
+secrets/
+.env
+

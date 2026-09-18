@@ -1,0 +1,29 @@
+# Merge these machine-specific fields into a copy of OAI's current
+# gnb.sa.band78.fr1.106PRB.usrpb210.redcap.yaml.
+# Keep all RedCap, BWP, frequency, numerology and timer values from that file.
+
+gNBs:
+  - amf_ip_address:
+      - ipv4: 192.168.70.132
+    NETWORK_INTERFACES:
+      GNB_IPV4_ADDRESS_FOR_NG_AMF: 192.168.70.129
+      GNB_IPV4_ADDRESS_FOR_NGU: 192.168.70.129
+      GNB_PORT_FOR_S1U: 2152
+
+RUs:
+  - local_rf: yes
+    nb_tx: 1
+    nb_rx: 1
+    att_tx: 12
+    att_rx: 12
+    bands: [78]
+    max_pdschReferenceSignalPower: -27
+    # This value is OAI calibration-relative. Re-evaluate against the exact
+    # checkout's calib_table_x310 and startup log; it is not UBX gain directly.
+    max_rxgain: 31
+    eNB_instances: [0]
+    sdr_addrs: "addr=192.168.40.2"
+    tx_subdev: "A:0"
+    rx_subdev: "A:0"
+    clock_src: internal
+
