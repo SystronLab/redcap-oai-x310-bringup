@@ -1,48 +1,58 @@
 # OAI 5G RedCap bring-up with an X310 and EM8695
 
-Reproducible runbook for a standalone 5G RedCap system:
+Reproducible runbook for a two-computer standalone 5G RedCap system:
 
 ```text
-Semtech/Sierra Wireless EM8695
-        | n78 RF
-Ettus USRP X310 + UBX-160 v2
-        |
-OAI nr-softmodem gNB
-        | N2/N3
-OAI 5G Core in Docker
-        |
-external DN / internet
+SERVER / gNB-core host                         LAPTOP / UE host
+
+OAI 5G Core (Docker) <-- N2/N3 --> OAI gNB    applications and test traffic
+                                    |           |
+                              Ettus X310      wwan0 / USB
+                                    | n78       |
+                                    +------ EM8695 RedCap UE
+
+Both computers may also use an ordinary LAN/Wi-Fi connection for management.
+That management connection does not carry N2, N3, or NR user traffic.
 ```
 
 This repository documents a verified deployment using OAI `develop` commit
-`1143f7500e`, UHD 4.9.0.0, an X310 with HG FPGA, and OAI Core v2.2.1. Adapt
-addresses and subscriber values to the target machine instead of copying them
-blindly.
+`1143f7500e`, UHD 4.9.0.0, an X310 with HG FPGA, and OAI Core v2.2.1. Clone
+this repository on both computers. Adapt interface names, addresses, and
+subscriber values to each computer instead of copying examples blindly.
+
+## Which computer does what
+
+| Responsibility | Server / gNB-core host | Laptop / UE host |
+|---|---:|---:|
+| OAI 5G Core containers and subscriber database | yes | no |
+| OAI `nr-softmodem` | yes | no |
+| X310 Ethernet and UHD | yes | no |
+| EM8695 USB, ModemManager, and `wwan0` | no | yes |
+| UE-side ping/curl tests | no | yes |
+
+The X310 must be connected directly (or through a suitable dedicated 10 GbE
+network) to the server. Connect the EM8695 by USB to the laptop. No physical
+Ethernet connection between the EM8695 and server is required: their data path
+is the n78 radio link.
 
 ## Verified outcome
 
-The reference deployment achieved:
-
-- NG Setup with the OAI AMF.
-- OAI identification of the EM8695 as a RedCap UE.
-- 5G-AKA registration on PLMN `001/01`.
-- NR SA packet attachment on band n78.
-- IPv4 PDU session on DNN `oai`.
-- Bidirectional UE-to-external-DN traffic.
-- Public internet access through the UPF and host uplink.
+The reference deployment achieved NG Setup, RedCap UE identification, 5G-AKA
+registration on PLMN `001/01`, NR SA attachment on band n78, an IPv4 PDU
+session on DNN `oai`, and bidirectional UE-to-external-DN/internet traffic.
 
 ## Repository map
 
-- [docs/runbook.md](docs/runbook.md): complete bring-up procedure.
+- [docs/runbook.md](docs/runbook.md): complete two-computer bring-up procedure.
 - [docs/troubleshooting.md](docs/troubleshooting.md): failure isolation and known issues.
-- [config/x310-redcap-ru.yaml](config/x310-redcap-ru.yaml): RF/network fragment to apply to the checked-out OAI RedCap reference.
-- [scripts/inspect.sh](scripts/inspect.sh): non-mutating host/hardware inventory.
-- [scripts/tune-x310.sh](scripts/tune-x310.sh): idempotent NIC and socket tuning.
-- [scripts/ue-policy-route.sh](scripts/ue-policy-route.sh): source-policy route for locally attached MBIM UEs.
+- [config/x310-redcap-ru.yaml](config/x310-redcap-ru.yaml): server-side RF/network fragment.
+- [scripts/inspect.sh](scripts/inspect.sh): server-oriented, non-mutating inventory.
+- [scripts/tune-x310.sh](scripts/tune-x310.sh): server-side NIC and socket tuning.
+- [scripts/ue-policy-route.sh](scripts/ue-policy-route.sh): laptop-side source-policy route.
 
 ## Important safety rules
 
-- Never copy, publish, or regenerate subscriber K/OPc values.
+- Never copy, publish, or commit subscriber K/OPc values or SIM identifiers.
 - Never reset SQN during routine bring-up. Successful AKA advances SQN normally.
 - Inspect the running core before changing it; do not redeploy healthy NFs.
 - Do not stop unrelated Docker workloads.
@@ -52,7 +62,8 @@ The reference deployment achieved:
 
 ## Quick start
 
-Read the full runbook first. At a high level:
+On the **server**, inspect and tune the X310 link, start the core, and launch
+the gNB as described in the runbook:
 
 ```bash
 ./scripts/inspect.sh ens7f0 192.168.40.2
@@ -67,15 +78,16 @@ sudo env LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
   -E --continuous-tx
 ```
 
-After the modem establishes its `oai` bearer, configure its reported IP and
-gateway on `wwan0`, then install source-policy routing:
+After the gNB receives `NGSetupResponse`, use the **laptop** to connect the
+modem. Configure the address and gateway reported by its bearer:
 
 ```bash
+sudo mmcli -m MODEM_ID --simple-connect='apn=oai,ip-type=ipv4'
+mmcli -b BEARER_ID
 sudo ip link set wwan0 up
 sudo ip addr replace UE_ADDRESS/PREFIX dev wwan0
 sudo ./scripts/ue-policy-route.sh wwan0 UE_ADDRESS UE_GATEWAY
 ```
 
-Do not add destination-specific routes such as `8.8.8.8/32 via UE_GATEWAY`.
-They also capture forwarded UPF packets and create a routing loop.
-
+See [docs/runbook.md](docs/runbook.md) for prerequisites, exact ordering, and
+copy-paste prompts to give Codex on each computer.

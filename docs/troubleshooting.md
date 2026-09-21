@@ -1,9 +1,14 @@
 # Troubleshooting
 
+Run gNB/core checks on the **server** and modem/`wwan0` checks on the
+**laptop**, unless stated otherwise. Compare timestamps across both computers.
+The laptop does not need direct IP reachability to the Docker AMF or UPF.
+
 ## No NG Setup
 
-Do not debug the SIM first. Check AMF IP, host N2 address, SCTP/38412, Docker
-routing, PLMN and TAC. The gNB must receive `NGSetupResponse` before UE work.
+Do not debug the SIM first. Check AMF IP, server N2 address, SCTP/38412, Docker
+routing, PLMN and TAC on the server. The gNB must receive `NGSetupResponse`
+before doing UE work on the laptop.
 
 ## No cell found
 
@@ -53,10 +58,14 @@ Inspect both NAT layers:
 - UPF: UE subnet to UPF bridge address.
 - Docker host: core bridge subnet to physical uplink.
 
-Use `tcpdump` simultaneously on the core bridge and physical uplink. If a UE
-SYN appears repeatedly on the core bridge but never on the uplink, inspect host
-policy routing. Remove destination-specific routes through `wwan0` and use the
-source-based helper script.
+Use `tcpdump` simultaneously on the server's core bridge and physical uplink.
+If a UE SYN appears on the bridge but never on the server uplink, inspect
+server forwarding and NAT. If it never reaches the UPF, inspect PDU/N3 state
+on the server and `wwan0` source routing on the laptop.
+
+On the laptop, verify that `ip rule` selects table 100 only for the assigned UE
+source and that the management default route is unchanged. Remove any
+destination-specific routes through `wwan0` and use the source-based helper.
 
 Some networks block public ICMP or port 80. Test HTTPS as well as ping, and
 first verify that the host itself can reach the chosen endpoint.
@@ -73,4 +82,3 @@ OAI applies `calib_table_x310` before calling UHD. `max_rxgain` is therefore a
 calibrated OAI reference rather than a direct UBX gain command. Inspect startup
 lines showing requested gain, calibration offset and actual UHD gain. Use the
 checked-out X310 examples/code to choose values; do not use B210's 114 blindly.
-
