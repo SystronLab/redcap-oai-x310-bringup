@@ -27,6 +27,26 @@ Confirm the IMSI first. Compare AMF, K/OPc and SQN privately. Never reset SQN
 as a first response. Authentication resynchronization should be diagnosed from
 AUSF/UDM/UDR logs.
 
+## Registered and attached but the `oai` bearer fails
+
+First confirm that the modem is home on PLMN `00101`, packet service is
+attached, and the gNB/core logs show successful registration. If
+`--simple-connect='apn=oai,ip-type=ipv4'` times out or returns
+`MobileEquipment.Unknown` while the modem is in dual LTE/5G mode, force the
+verified EM8695 into its supported 5G-only mode and retry:
+
+```bash
+sudo mmcli -m MODEM_ID --disable
+sudo mmcli -m MODEM_ID --set-allowed-modes='5g'
+sudo mmcli -m MODEM_ID --enable
+sudo mmcli -m MODEM_ID --simple-connect='apn=oai,ip-type=ipv4'
+```
+
+Inspect the new bearer path reported by `mmcli -m MODEM_ID`; bearer IDs may
+change between attempts. Configure `wwan0` only from the address, prefix and
+gateway reported by that connected bearer. Do not reuse values from a failed
+or deleted bearer.
+
 ## PDU succeeds but gets a pool address instead of the provisioned static IP
 
 In the verified deployment, MySQL contained static `10.0.0.6`, but the modem

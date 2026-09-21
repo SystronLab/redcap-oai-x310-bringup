@@ -198,10 +198,21 @@ mbimcli -d /dev/cdc-wdm1 --query-subscriber-ready-status --device-open-proxy
 Once the server is ready, connect and inspect the bearer:
 
 ```bash
+sudo mmcli -m MODEM_ID --disable
+sudo mmcli -m MODEM_ID --set-allowed-modes='5g'
+sudo mmcli -m MODEM_ID --enable
 sudo mmcli -m MODEM_ID --simple-connect='apn=oai,ip-type=ipv4'
 mmcli -m MODEM_ID
 mmcli -b BEARER_ID
 ```
+
+The verified EM8695 needed its supported 5G-only mode for NR SA data-session
+activation. In dual LTE/5G mode it registered home on `00101`, reported packet
+service attached and LTE plus 5G NR, but the `oai` bearer timed out and then
+failed with `org.freedesktop.ModemManager1.Error.MobileEquipment.Unknown`.
+After switching to 5G-only mode, the same bearer request succeeded. Setting
+the mode while disabled makes the transition explicit; allow registration to
+settle after enabling if it does not complete immediately.
 
 Use the address, prefix, and gateway reported by that bearer:
 

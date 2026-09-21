@@ -82,6 +82,9 @@ After the gNB receives `NGSetupResponse`, use the **laptop** to connect the
 modem. Configure the address and gateway reported by its bearer:
 
 ```bash
+sudo mmcli -m MODEM_ID --disable
+sudo mmcli -m MODEM_ID --set-allowed-modes='5g'
+sudo mmcli -m MODEM_ID --enable
 sudo mmcli -m MODEM_ID --simple-connect='apn=oai,ip-type=ipv4'
 mmcli -b BEARER_ID
 sudo ip link set wwan0 up
