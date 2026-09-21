@@ -10,7 +10,7 @@ INSERT INTO AuthenticationSubscription
 VALUES
   ('001010000134378', '5G_AKA', '0772f723eb02ff1137469c8a15413f9c',
    '0772f723eb02ff1137469c8a15413f9c',
-   '{"sqn":"000000001121","sqnScheme":"NON_TIME_BASED","lastIndexes":{"ausf":0}}',
+   '{"sqn":"000000001161","sqnScheme":"NON_TIME_BASED","lastIndexes":{"ausf":0}}',
    '8000', 'milenage', 'e4058703611cadaf283cefb9965b9f4e',
    NULL, NULL, NULL, NULL, '001010000134378')
 ON DUPLICATE KEY UPDATE

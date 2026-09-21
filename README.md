@@ -44,6 +44,8 @@ session on DNN `oai`, and bidirectional UE-to-external-DN/internet traffic.
 ## Repository map
 
 - [docs/runbook.md](docs/runbook.md): complete two-computer bring-up procedure.
+- [docs/successful-host-handoff.md](docs/successful-host-handoff.md): exact
+  working server inventory and replacement-host replication checklist.
 - [docs/troubleshooting.md](docs/troubleshooting.md): failure isolation and known issues.
 - [config/x310-redcap-ru.yaml](config/x310-redcap-ru.yaml): server-side RF/network fragment.
 - [scripts/inspect.sh](scripts/inspect.sh): server-oriented, non-mutating inventory.
