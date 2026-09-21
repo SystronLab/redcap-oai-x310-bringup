@@ -82,8 +82,8 @@ mmcli -L
 
 Confirm the EM8695, its control device, and its network interface are present.
 The laptop must retain a normal management/default route independently of
-`wwan0`. Do not put subscriber secrets or identifiers in this repository or a
-Codex prompt/transcript.
+`wwan0`. Subscriber credentials are intentionally present in the tracked
+provisioning snapshot; do not duplicate them in logs or prompt transcripts.
 
 ## 3. Server setup
 
@@ -105,7 +105,18 @@ sudo sysctl -w net.core.wmem_max=62500000 net.core.rmem_max=62500000
 
 ### Verify the subscriber
 
-Provision authentication on the server out of band. Never commit K or OPc.
+For the verified deployment, import the tracked subscriber snapshot after the
+OAI MySQL container is healthy. The snapshot contains K and OPc in plaintext:
+
+```bash
+./scripts/provision-subscriber.sh
+```
+
+The import is idempotent and provisions the authentication subscription plus
+the `oai` DNN, S-NSSAI, QoS/AMBR, and static UE address. It deliberately does
+not copy transient `AuthenticationStatus`, AMF registration, SMF registration,
+or SDM state from the source core.
+
 Verify the existing row without modifying it:
 
 ```sql
@@ -262,8 +273,8 @@ Correlate laptop timestamps with server gNB/AMF/SMF/UPF logs. See
 
 ## 7. Prompts for Codex on each computer
 
-Run Codex from the respective clone. Replace path/interface placeholders, but
-never add subscriber secrets.
+Run Codex from the respective clone. Replace path/interface placeholders and
+use the tracked subscriber snapshot without echoing its credentials.
 
 **Server prompt:**
 
@@ -273,7 +284,8 @@ OAI gNB, and X310; the EM8695 is on another laptop. Read the documentation,
 inspect this host and existing OAI/core checkouts, and report discovered NIC,
 X310, Docker, N2/N3, PLMN, slice, and DNN values before changing anything.
 Then perform the server-side setup in order. Preserve healthy containers and
-unrelated workloads. Do not request, print, or commit K/OPc. Stop before RF
+unrelated workloads. Import the tracked subscriber snapshot without printing
+K/OPc. Stop before RF
 transmission if spectrum authorization or RF cabling is unclear.
 ```
 

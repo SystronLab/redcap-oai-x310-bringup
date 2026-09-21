@@ -49,10 +49,21 @@ session on DNN `oai`, and bidirectional UE-to-external-DN/internet traffic.
 - [scripts/inspect.sh](scripts/inspect.sh): server-oriented, non-mutating inventory.
 - [scripts/tune-x310.sh](scripts/tune-x310.sh): server-side NIC and socket tuning.
 - [scripts/ue-policy-route.sh](scripts/ue-policy-route.sh): laptop-side source-policy route.
+- [scripts/provision-subscriber.sh](scripts/provision-subscriber.sh): idempotently imports a
+  private subscriber snapshot into the running OAI MySQL container.
+
+The verified subscriber snapshot is stored at
+`config/subscriber-001010000134378.sql`. It contains the SIM identity, K, OPc,
+and SQN in plaintext. To reproduce the setup after cloning, run:
+
+```bash
+./scripts/provision-subscriber.sh
+```
 
 ## Important safety rules
 
-- Never copy, publish, or commit subscriber K/OPc values or SIM identifiers.
+- The tracked subscriber snapshot contains live K/OPc values and a SIM
+  identifier; restrict repository access accordingly.
 - Never reset SQN during routine bring-up. Successful AKA advances SQN normally.
 - Inspect the running core before changing it; do not redeploy healthy NFs.
 - Do not stop unrelated Docker workloads.
