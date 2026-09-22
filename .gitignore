@@ -3,4 +3,5 @@
 *.iqs
 secrets/
 .env
-
+__pycache__/
+*.py[cod]

@@ -50,7 +50,13 @@ session on DNN `oai`, and bidirectional UE-to-external-DN/internet traffic.
 - [config/x310-redcap-ru.yaml](config/x310-redcap-ru.yaml): server-side RF/network fragment.
 - [scripts/inspect.sh](scripts/inspect.sh): server-oriented, non-mutating inventory.
 - [scripts/tune-x310.sh](scripts/tune-x310.sh): server-side NIC and socket tuning.
+- [scripts/network-fresh.sh](scripts/network-fresh.sh): this server's full lab
+  stop/fresh-start helper; see [state-reset details](docs/fresh-network-start.md).
 - [scripts/ue-policy-route.sh](scripts/ue-policy-route.sh): laptop-side source-policy route.
+- [scripts/connect-ue.py](scripts/connect-ue.py): laptop EM8695 registration/data helper;
+  run with `sudo python3 scripts/connect-ue.py --watch` for USB reconnects.
+  Add `--internet` to use cellular IPv4 default routing and bearer DNS.
+  See [laptop helper instructions](docs/laptop-auto-connect.md) for limitations.
 - [scripts/provision-subscriber.sh](scripts/provision-subscriber.sh): idempotently imports a
   private subscriber snapshot into the running OAI MySQL container.
 
