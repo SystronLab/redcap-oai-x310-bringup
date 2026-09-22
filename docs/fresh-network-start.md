@@ -1,7 +1,10 @@
 # Fresh network start on this server
 
-This helper is specific to `/home/mohit/jinkun` on `systron-ran`, the
-`oai-cn5g` Compose project, and the X310 interface `ens7f0` at `192.168.40.1/24`.
+This helper is specific to `/home/systron/redcap-bringup` on this server, the
+`redcap-oai` Compose project, and the X310 interface `enp46s0` at
+`192.168.40.1/24`. It launches the pinned OAI checkout's UHD 4.10 build through
+`/home/systron/redcap-bringup/start-gnb-uhd410.sh` as the transient systemd unit
+`redcap-gnb-uhd410.service`.
 It does not stop unrelated Docker projects or modify the management NIC.
 
 1. Stop the laptop connection watcher and **power off the UE**. Resetting only
@@ -9,11 +12,14 @@ It does not stop unrelated Docker projects or modify the management NIC.
 2. On the server:
 
    ```bash
-   cd /home/mohit/jinkun/redcap-oai-x310-bringup
-   sudo bash scripts/network-fresh.sh start --ue-off
+   cd /home/systron/Mohit/redcap-oai-x310-bringup
+   sudo ./scripts/network-fresh.sh start --ue-off
    ```
 
 3. Wait for `NETWORK READY`, then power on the UE and run the laptop helper.
+   The command remains open with a filtered live AMF view. A successfully
+   registered UE appears as `5GMM-REGISTERED`. Press `Ctrl+C` to close the view;
+   this does not stop the core or gNB.
    This readiness message means the core passed health checks and the current
    gNB invocation logged NG Setup acceptance and RF startup. It does not prove
    RF coverage, UE registration, or user-plane connectivity.
@@ -21,16 +27,17 @@ It does not stop unrelated Docker projects or modify the management NIC.
 Other commands:
 
 ```bash
-sudo bash scripts/network-fresh.sh check  # read-only preflight; no startup
-sudo bash scripts/network-fresh.sh stop   # stop gNB and all ten lab containers
-sudo journalctl -u oai-redcap-gnb.service -f
+sudo ./scripts/network-fresh.sh check  # read-only preflight; no startup
+sudo ./scripts/network-fresh.sh stop   # stop gNB and all nine lab containers
+sudo ./scripts/network-fresh.sh watch  # re-open the live AMF UE/session view
+sudo journalctl -u redcap-gnb-uhd410.service -f
 ```
 
 ## What is reset
 
 - gNB process state, RRC/NGAP contexts, and in-process radio state.
-- All ten lab containers are recreated: MySQL, IMS, NRF, UDR, UDM, AUSF,
-  AMF, SMF, UPF, and external DN. No image pulls/upgrades occur.
+- All nine lab containers are recreated: MySQL, NRF, UDR, UDM, AUSF, AMF,
+  SMF, UPF, and external DN. No image pulls/upgrades occur.
 - In-memory registration/session contexts and UPF container network state.
 - Rows in the runtime MySQL tables `Amf3GppAccessRegistration`,
   `SmfRegistrations`, `SdmSubscriptions`, and `AuthenticationStatus`.

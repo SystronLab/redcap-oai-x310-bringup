@@ -2,23 +2,25 @@
 # This host's OAI lab only. Preserve subscriber secrets/SQN; discard runtime contexts.
 set -Eeuo pipefail
 
-lab_base=/home/mohit/jinkun
+lab_base=/home/systron/redcap-bringup
 core_file="$lab_base/oai-cn5g/docker-compose.yaml"
-ran_dir="$lab_base/openairinterface5g"
-build_dir="$ran_dir/cmake_targets/ran_build/build"
-gnb_config="$ran_dir/targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpx310.redcap.yaml"
-unit=oai-redcap-gnb.service
-nic=ens7f0
+ran_dir="$lab_base/oai-reference"
+build_dir="$ran_dir/build-uhd410"
+gnb_config="$lab_base/gnb-reference.yaml"
+gnb_launcher="$lab_base/start-gnb-uhd410.sh"
+unit=redcap-gnb-uhd410.service
+nic=enp46s0
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-compose=(docker compose --project-name oai-cn5g --file "$core_file")
-services=(mysql ims oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf oai-ext-dn)
-runtime_services=(ims oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf oai-ext-dn)
+compose=(docker compose --project-name redcap-oai --file "$core_file")
+services=(mysql oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf oai-ext-dn)
+runtime_services=(oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf oai-ext-dn)
 
 log() { printf '[%(%H:%M:%S)T] %s\n' -1 "$*"; }
 die() { log "ERROR: $*" >&2; exit 1; }
 usage() {
-    echo "Usage: sudo bash $0 {check|stop|start --ue-off}"
+    echo "Usage: sudo $0 {check|stop|watch|start --ue-off}"
     echo 'start clears runtime registration/session records, but NEVER subscriber credentials/SQN.'
+    echo 'watch shows live AMF UE registration and PDU-session events; Ctrl+C leaves the network running.'
     echo 'Power OFF the UE and stop its connection watcher before using start --ue-off.'
 }
 
@@ -26,11 +28,11 @@ usage() {
 [[ $EUID == 0 ]] || die 'Run with sudo.'
 action=${1:-}
 case "$action" in
-    check|stop) [[ $# == 1 ]] || { usage; exit 2; } ;;
+    check|stop|watch) [[ $# == 1 ]] || { usage; exit 2; } ;;
     start) [[ $# == 2 && $2 == --ue-off ]] || { usage; exit 2; } ;;
     *) usage; exit 2 ;;
 esac
-for tool in docker systemctl systemd-run journalctl ip sysctl flock pgrep; do
+for tool in docker systemctl systemd-run journalctl ip sysctl flock pgrep grep stdbuf; do
     command -v "$tool" >/dev/null || die "Missing command: $tool"
 done
 [[ -f $core_file ]] || die "Missing $core_file"
@@ -43,8 +45,23 @@ actual=$("${compose[@]}" config --services | sort)
 [[ $actual == "$expected" ]] || die 'Unexpected Compose service set; review the script before proceeding.'
 for service in "${services[@]}"; do
     project=$(docker inspect "$service" --format '{{index .Config.Labels "com.docker.compose.project"}}')
-    [[ $project == oai-cn5g ]] || die "Container $service is not owned by the lab project."
+    [[ $project == redcap-oai ]] || die "Container $service is not owned by the lab project."
 done
+
+watch_network() {
+    systemctl is-active --quiet "$unit" || die "$unit is not running."
+    [[ $(docker inspect oai-amf --format '{{.State.Status}}') == running ]] || die 'oai-amf is not running.'
+    log 'LIVE AMF VIEW: waiting for UE registration and PDU-session events (Ctrl+C exits view only).'
+    log 'A connected UE will appear as 5GMM-REGISTERED. The network will remain running when this view closes.'
+    docker logs --follow --since 0s oai-amf 2>&1 | \
+        stdbuf -oL grep --line-buffered -E \
+        '5GMM-|UEs. Information|IMSI/SUPI|Registration (Request|Accept|Reject)|imsi-[0-9]+|PDU Session|PDU_SESSION|SUPI|RAN UE NGAP'
+}
+
+if [[ $action == watch ]]; then
+    watch_network
+    exit 0
+fi
 
 stop_lab() {
     if [[ $(systemctl show "$unit" -p LoadState --value) != not-found ]]; then
@@ -55,7 +72,7 @@ stop_lab() {
     if pgrep -x nr-softmodem >/dev/null; then
         die 'A separate nr-softmodem is running. Not killing an unowned process; stop it manually.'
     fi
-    log 'gNB and all ten lab containers are stopped.'
+    log 'gNB and all nine lab containers are stopped.'
 }
 
 if [[ $action == stop ]]; then
@@ -66,13 +83,14 @@ if [[ $action == stop ]]; then
     exit 0
 fi
 
-for file in "$build_dir/nr-softmodem" "$gnb_config" "$script_dir/tune-x310.sh" \
+for file in "$build_dir/nr-softmodem" "$gnb_config" "$gnb_launcher" "$script_dir/tune-x310.sh" \
     "$lab_base/oai-cn5g/conf/config.yaml" "$lab_base/oai-cn5g/database/oai_db.sql" \
     "$lab_base/oai-cn5g/healthscripts/mysql-healthcheck.sh" \
     "$lab_base/oai-cn5g/conf/sip.conf" "$lab_base/oai-cn5g/conf/users.conf"; do
     [[ -f $file ]] || die "Missing file: $file"
 done
 [[ -x $build_dir/nr-softmodem ]] || die 'nr-softmodem is not executable.'
+[[ -x $gnb_launcher ]] || die 'gNB launcher is not executable.'
 command -v ethtool >/dev/null || die 'Missing ethtool.'
 ip -4 addr show dev "$nic" | grep -q 'inet 192.168.40.1/24' || die 'X310 NIC address is not 192.168.40.1/24.'
 db_volume=$(docker inspect mysql --format '{{range .Mounts}}{{if eq .Destination "/var/lib/mysql"}}{{.Name}}{{end}}{{end}}')
@@ -151,15 +169,12 @@ SQL
 log 'Recreating the nine remaining core containers with fresh process/network-namespace state.'
 "${compose[@]}" up -d --no-deps --force-recreate --no-build --pull never "${runtime_services[@]}"
 wait_healthy "${services[@]}"
-log 'All ten core containers are healthy. Tuning the dedicated X310 NIC.'
+log 'All nine core containers are healthy. Tuning the dedicated X310 NIC.'
 bash "$script_dir/tune-x310.sh" "$nic"
 sysctl -w net.ipv4.ip_forward=1
 systemctl reset-failed "$unit" 2>/dev/null || true
 systemd-run --unit="$unit" --description='OAI RedCap gNB (fresh X310 run)' \
-    --property="WorkingDirectory=$build_dir" --property=Restart=no \
-    --setenv="LD_LIBRARY_PATH=$build_dir" \
-    "$build_dir/nr-softmodem" -O "$gnb_config" \
-    '--gNBs.[0].min_rxtxtime' 6 --usrp-tx-thread-config 1 -E --continuous-tx
+    --property=Restart=no "$gnb_launcher"
 invocation=$(systemctl show "$unit" -p InvocationID --value)
 [[ -n $invocation ]] || die 'Missing gNB invocation ID.'
 deadline=$((SECONDS + 90))
@@ -171,6 +186,9 @@ while (( SECONDS < deadline )); do
         sysctl -w net.core.wmem_max=62500000 net.core.rmem_max=62500000
         log 'NETWORK READY: all core containers healthy, NG Setup accepted, RF-start marker seen.'
         log 'Now power on the UE and run the laptop connection helper. No UE registration is implied yet.'
+        trap - EXIT INT TERM
+        flock -u 9
+        watch_network
         exit 0
     fi
     sleep 2

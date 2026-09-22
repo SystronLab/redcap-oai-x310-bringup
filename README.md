@@ -81,12 +81,24 @@ and SQN in plaintext. To reproduce the setup after cloning, run:
 
 ## Quick start
 
+For a complete fresh runtime/session start on this server, first power off the
+UE and stop any UE connection watcher, then run:
+
+```bash
+cd /home/systron/Mohit/redcap-oai-x310-bringup
+sudo ./scripts/network-fresh.sh start --ue-off
+```
+
+Wait for `NETWORK READY` before powering on the UE. The helper uses the
+deployment at `/home/systron/redcap-bringup`, Compose project `redcap-oai`, and
+X310 interface `enp46s0`. It preserves subscriber credentials and SQN.
+
 On the **server**, inspect and tune the X310 link, start the core, and launch
 the gNB as described in the runbook:
 
 ```bash
-./scripts/inspect.sh ens7f0 192.168.40.2
-sudo ./scripts/tune-x310.sh ens7f0
+./scripts/inspect.sh enp46s0 192.168.40.2
+sudo ./scripts/tune-x310.sh enp46s0
 
 cd /path/to/openairinterface5g/cmake_targets/ran_build/build
 sudo env LD_LIBRARY_PATH="$PWD${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
