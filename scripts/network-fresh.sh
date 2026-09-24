@@ -7,10 +7,10 @@ core_file="$lab_base/oai-cn5g/docker-compose.yaml"
 ran_dir="$lab_base/oai-reference"
 build_dir="$ran_dir/build-uhd410"
 gnb_config="$lab_base/gnb-reference.yaml"
-gnb_launcher="$lab_base/start-gnb-uhd410.sh"
 unit=redcap-gnb-uhd410.service
 nic=enp46s0
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+gnb_launcher="$script_dir/start-gnb-uhd410.sh"
 compose=(docker compose --project-name redcap-oai --file "$core_file")
 services=(mysql oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf oai-ext-dn)
 runtime_services=(oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf oai-ext-dn)
@@ -32,7 +32,7 @@ case "$action" in
     start) [[ $# == 2 && $2 == --ue-off ]] || { usage; exit 2; } ;;
     *) usage; exit 2 ;;
 esac
-for tool in docker systemctl systemd-run journalctl ip sysctl flock pgrep grep stdbuf; do
+for tool in docker systemctl systemd-run journalctl ip sysctl flock pgrep grep stdbuf taskset; do
     command -v "$tool" >/dev/null || die "Missing command: $tool"
 done
 [[ -f $core_file ]] || die "Missing $core_file"
@@ -91,6 +91,8 @@ for file in "$build_dir/nr-softmodem" "$gnb_config" "$gnb_launcher" "$script_dir
 done
 [[ -x $build_dir/nr-softmodem ]] || die 'nr-softmodem is not executable.'
 [[ -x $gnb_launcher ]] || die 'gNB launcher is not executable.'
+grep -Eq -- '--usrp-tx-thread-config[[:space:]]+0([[:space:]]|\\|$)' "$gnb_launcher" || \
+    die 'gNB launcher must use direct TX: --usrp-tx-thread-config 0.'
 command -v ethtool >/dev/null || die 'Missing ethtool.'
 ip -4 addr show dev "$nic" | grep -q 'inet 192.168.40.1/24' || die 'X310 NIC address is not 192.168.40.1/24.'
 db_volume=$(docker inspect mysql --format '{{range .Mounts}}{{if eq .Destination "/var/lib/mysql"}}{{.Name}}{{end}}{{end}}')
@@ -169,7 +171,7 @@ SQL
 log 'Recreating the nine remaining core containers with fresh process/network-namespace state.'
 "${compose[@]}" up -d --no-deps --force-recreate --no-build --pull never "${runtime_services[@]}"
 wait_healthy "${services[@]}"
-log 'All nine core containers are healthy. Tuning the dedicated X310 NIC.'
+log 'All nine core containers are healthy. Tuning CPU governors and applying physical-core/IRQ isolation.'
 bash "$script_dir/tune-x310.sh" "$nic"
 sysctl -w net.ipv4.ip_forward=1
 systemctl reset-failed "$unit" 2>/dev/null || true

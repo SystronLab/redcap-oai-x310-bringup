@@ -3,9 +3,12 @@
 This helper is specific to `/home/systron/redcap-bringup` on this server, the
 `redcap-oai` Compose project, and the X310 interface `enp46s0` at
 `192.168.40.1/24`. It launches the pinned OAI checkout's UHD 4.10 build through
-`/home/systron/redcap-bringup/start-gnb-uhd410.sh` as the transient systemd unit
+the repository's `scripts/start-gnb-uhd410.sh` as the transient systemd unit
 `redcap-gnb-uhd410.service`.
 It does not stop unrelated Docker projects or modify the management NIC.
+The launcher uses direct UHD transmission (`--usrp-tx-thread-config 0`) to
+avoid the asynchronous writer's ten-entry queue overflowing and producing
+continuous late-command events on this host.
 
 1. Stop the laptop connection watcher and **power off the UE**. Resetting only
    the core cannot clear the modem's stored registration context.
@@ -60,9 +63,16 @@ history, and modem/SIM nonvolatile state are not globally erased. This is a
 Container recreation removes their old writable layers/logs; journal history
 remains available. The X310 is reopened, not physically power-cycled.
 
-The helper tunes the dedicated NIC/rings, sets host socket buffers and enables
-IPv4 forwarding using the existing lab tuning procedure. Those host settings
-are not rolled back on shutdown. No software or boot services are installed.
+The helper sets the CPU 0-15 governors to `performance`. The hybrid CPU has
+four hyper-threaded P-cores on logical CPUs 0-7 and eight E-cores on CPUs 8-15;
+the launcher gives the gNB eight distinct physical cores
+(`0,2,4,6,8,9,10,11`) and assigns the dedicated X310 NIC's MSI interrupts to
+the remaining E-cores (`12-15`). It also selects 8 microsecond RX/TX interrupt
+coalescing with maximum ring sizes, sets host socket buffers, and enables IPv4
+forwarding. It verifies the governor, IRQ-affinity, and coalescing changes
+before launching the gNB. These live host settings are not rolled back on
+shutdown and must be restored after each reboot; the helper does that on every
+start. No software or boot services are installed.
 
 On startup failure the helper attempts to stop all lab components and returns
 nonzero. The gNB has automatic restart disabled, so a crash is visible rather

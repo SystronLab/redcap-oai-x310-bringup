@@ -49,7 +49,8 @@ session on DNN `oai`, and bidirectional UE-to-external-DN/internet traffic.
 - [docs/troubleshooting.md](docs/troubleshooting.md): failure isolation and known issues.
 - [config/x310-redcap-ru.yaml](config/x310-redcap-ru.yaml): server-side RF/network fragment.
 - [scripts/inspect.sh](scripts/inspect.sh): server-oriented, non-mutating inventory.
-- [scripts/tune-x310.sh](scripts/tune-x310.sh): server-side NIC and socket tuning.
+- [scripts/tune-x310.sh](scripts/tune-x310.sh): server-side CPU, NIC, and socket tuning.
+- [scripts/start-gnb-uhd410.sh](scripts/start-gnb-uhd410.sh): pinned direct-TX gNB launcher.
 - [scripts/network-fresh.sh](scripts/network-fresh.sh): this server's full lab
   stop/fresh-start helper; see [state-reset details](docs/fresh-network-start.md).
 - [scripts/ue-policy-route.sh](scripts/ue-policy-route.sh): laptop-side source-policy route.
