@@ -52,6 +52,9 @@ session on DNN `oai`, and bidirectional UE-to-external-DN/internet traffic.
 - [scripts/tune-x310.sh](scripts/tune-x310.sh): server-side NIC and socket tuning.
 - [scripts/network-fresh.sh](scripts/network-fresh.sh): this server's full lab
   stop/fresh-start helper; see [state-reset details](docs/fresh-network-start.md).
+- [scripts/watch-ue.py](scripts/watch-ue.py): live AMF UE tables and optional gNB events;
+  `network-fresh.sh watch` opens the AMF view without restarting the network.
+- [docs/udp-messages.md](docs/udp-messages.md): manual UDP server and laptop client commands.
 - [scripts/ue-policy-route.sh](scripts/ue-policy-route.sh): laptop-side source-policy route.
 - [scripts/connect-ue.py](scripts/connect-ue.py): laptop EM8695 registration/data helper;
   run with `sudo python3 scripts/connect-ue.py --watch` for USB reconnects.

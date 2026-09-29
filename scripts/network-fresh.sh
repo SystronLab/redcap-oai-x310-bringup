@@ -17,20 +17,21 @@ runtime_services=(ims oai-nrf oai-udr oai-udm oai-ausf oai-amf oai-smf oai-upf o
 log() { printf '[%(%H:%M:%S)T] %s\n' -1 "$*"; }
 die() { log "ERROR: $*" >&2; exit 1; }
 usage() {
-    echo "Usage: sudo bash $0 {check|stop|start --ue-off}"
+    echo "Usage: sudo bash $0 {check|stop|watch|start --ue-off}"
     echo 'start clears runtime registration/session records, but NEVER subscriber credentials/SQN.'
     echo 'Power OFF the UE and stop its connection watcher before using start --ue-off.'
+    echo 'start/watch show live AMF UE tables and session events; Ctrl+C leaves the network running.'
 }
 
 [[ ${1:-} == --help || ${1:-} == -h ]] && { usage; exit 0; }
 [[ $EUID == 0 ]] || die 'Run with sudo.'
 action=${1:-}
 case "$action" in
-    check|stop) [[ $# == 1 ]] || { usage; exit 2; } ;;
+    check|stop|watch) [[ $# == 1 ]] || { usage; exit 2; } ;;
     start) [[ $# == 2 && $2 == --ue-off ]] || { usage; exit 2; } ;;
     *) usage; exit 2 ;;
 esac
-for tool in docker systemctl systemd-run journalctl ip sysctl flock pgrep; do
+for tool in docker systemctl systemd-run journalctl ip sysctl flock pgrep python3; do
     command -v "$tool" >/dev/null || die "Missing command: $tool"
 done
 [[ -f $core_file ]] || die "Missing $core_file"
@@ -45,6 +46,17 @@ for service in "${services[@]}"; do
     project=$(docker inspect "$service" --format '{{index .Config.Labels "com.docker.compose.project"}}')
     [[ $project == oai-cn5g ]] || die "Container $service is not owned by the lab project."
 done
+
+watch_network() {
+    systemctl is-active --quiet "$unit" || die "$unit is not running."
+    [[ $(docker inspect oai-amf --format '{{.State.Status}}') == running ]] || die 'oai-amf is not running.'
+    [[ -f $script_dir/watch-ue.py ]] || die "Missing $script_dir/watch-ue.py"
+    exec python3 "$script_dir/watch-ue.py" --amf-only
+}
+
+if [[ $action == watch ]]; then
+    watch_network
+fi
 
 stop_lab() {
     if [[ $(systemctl show "$unit" -p LoadState --value) != not-found ]]; then
@@ -67,6 +79,7 @@ if [[ $action == stop ]]; then
 fi
 
 for file in "$build_dir/nr-softmodem" "$gnb_config" "$script_dir/tune-x310.sh" \
+    "$script_dir/watch-ue.py" \
     "$lab_base/oai-cn5g/conf/config.yaml" "$lab_base/oai-cn5g/database/oai_db.sql" \
     "$lab_base/oai-cn5g/healthscripts/mysql-healthcheck.sh" \
     "$lab_base/oai-cn5g/conf/sip.conf" "$lab_base/oai-cn5g/conf/users.conf"; do
@@ -171,7 +184,12 @@ while (( SECONDS < deadline )); do
         sysctl -w net.core.wmem_max=62500000 net.core.rmem_max=62500000
         log 'NETWORK READY: all core containers healthy, NG Setup accepted, RF-start marker seen.'
         log 'Now power on the UE and run the laptop connection helper. No UE registration is implied yet.'
-        exit 0
+        # Startup succeeded. Viewer exits/signals must never trigger lab shutdown.
+        trap - EXIT INT TERM
+        # Allow stop/start from another terminal while the viewer is open.
+        flock -u 9
+        exec 9>&-
+        watch_network
     fi
     sleep 2
 done

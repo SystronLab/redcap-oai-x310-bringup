@@ -9,7 +9,7 @@ It does not stop unrelated Docker projects or modify the management NIC.
 2. On the server:
 
    ```bash
-   cd /home/mohit/jinkun/redcap-oai-x310-bringup
+   cd /home/systron/Desktop/redcap-oai-x310-bringup
    sudo bash scripts/network-fresh.sh start --ue-off
    ```
 
@@ -17,6 +17,31 @@ It does not stop unrelated Docker projects or modify the management NIC.
    This readiness message means the core passed health checks and the current
    gNB invocation logged NG Setup acceptance and RF startup. It does not prove
    RF coverage, UE registration, or user-plane connectivity.
+
+4. The same terminal opens a **live AMF view**, including the complete
+   `UEs' Information` table (headers, rows and borders), registration changes,
+   and PDU-session events. `5GMM-REGISTERED` confirms UE registration;
+   `5GMM-DEREGISTERED` means it is not registered. The AMF prints the table
+   periodically, so this is a scrolling log view rather than an interactive dashboard.
+   The last two minutes are replayed before live updates. IMSI/SUPI and GUTI
+   values are displayed as reported by the AMF, preserving table alignment.
+   Authentication-key/debug payload filtering remains enabled. Verify user-plane
+   traffic from the UE host separately.
+
+**Ctrl+C stops only the viewer and leaves the network running.** You can also
+run `stop` in another terminal while the viewer is open. A viewer error after
+`NETWORK READY` does not shut down the lab. Reopen the same view without restarting:
+
+```bash
+sudo bash scripts/network-fresh.sh watch
+```
+
+For the combined AMF and gNB event view, including `RRC_CONNECTED`,
+`created new DRB` and `RRCReconfigurationComplete`:
+
+```bash
+sudo python3 scripts/watch-ue.py
+```
 
 Other commands:
 
